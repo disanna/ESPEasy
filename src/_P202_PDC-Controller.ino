@@ -6,13 +6,6 @@
 // ################Plugin 202: Controller per Pompa di Calore Panasonic Aquarea wh-mdc09c3e5 #############
 // #######################################################################################################
 
-/** Changelog:
- * 2025-06-14 tonhuisman: Add support for Custom Value Type per task value
- * 2025-01-12 tonhuisman: Add support for MQTT AutoDiscovery (not supported yet for Dummy Device)
- */
-
-
-
 # define PLUGIN_202
 # define PLUGIN_ID_202         202
 # define PLUGIN_NAME_202       "PDC Controller Panasonic Aquarea"
@@ -23,13 +16,22 @@
 
 #define P202_BAUDRATE                   PCONFIG_LONG(0)
 #define P202_BAUDRATE_LABEL             PCONFIG_LABEL(0)
-#define P202_BYTE_TEST_WRITE            PCONFIG(1)
-#define P202_BYTE_TEST_WRITE_LABEL      PCONFIG_LABEL(1)
-#define P202_SERIAL_MODE                PCONFIG_LONG(2)
-#define P202_SERIAL_MODE_LABEL          PCONFIG_LABEL(2)
-
+#define P202_SERIAL_MODE                PCONFIG(1)
+#define P202_SERIAL_MODE_LABEL          PCONFIG_LABEL(1)
+#define P202_BYTE_TEST_WRITE_01            PCONFIG(2)
+#define P202_BYTE_TEST_WRITE_01_LABEL      PCONFIG_LABEL(2)
+#define P202_BYTE_TEST_WRITE_02            PCONFIG(3)
+#define P202_BYTE_TEST_WRITE_02_LABEL      PCONFIG_LABEL(3)
+#define P202_BYTE_TEST_WRITE_03            PCONFIG(4)
+#define P202_BYTE_TEST_WRITE_03_LABEL      PCONFIG_LABEL(4)
+#define P202_BYTE_TEST_WRITE_04            PCONFIG(5)
+#define P202_BYTE_TEST_WRITE_04_LABEL      PCONFIG_LABEL(5)
 
 ESPeasySerial *Plugin_202_ESPEasySerial = nullptr;
+
+// Forward declarations
+void P202_initSerial(int baudRate, int modeIndex);
+void P202_testWrite(byte b);
 
 boolean Plugin_202(uint8_t function, struct EventStruct *event, String& string)
 {
@@ -64,9 +66,7 @@ boolean Plugin_202(uint8_t function, struct EventStruct *event, String& string)
       strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_202));
       strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_202));
       strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[2], PSTR(PLUGIN_VALUENAME3_202));
-      strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[3], PSTR(PLUGIN_VALUENAME4_202));
-      const Sensor_VType sensorType = static_cast<Sensor_VType>(PCONFIG(0));
-      
+      strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[3], PSTR(PLUGIN_VALUENAME4_202));      
       break;
     }
 
@@ -144,7 +144,10 @@ boolean Plugin_202(uint8_t function, struct EventStruct *event, String& string)
       // addFormSelector(string, F("drop-down menu"), F("dsptype"), dropdownCount, dropdownList, dropdownOptions, PCONFIG(0));
 
       // number selection (min_value - max_value)
-      addFormNumericBox(F("BYTE DI TEST (dec)"),F("byteTestWrite"), PCONFIG(1), 0,255);
+      addFormNumericBox(F("BYTE DI TEST 01 (dec)"),P202_BYTE_TEST_WRITE_01_LABEL, P202_BYTE_TEST_WRITE_01, 0,255);
+      addFormNumericBox(F("BYTE DI TEST 02 (dec)"),P202_BYTE_TEST_WRITE_02_LABEL, P202_BYTE_TEST_WRITE_02, 0,255);
+      addFormNumericBox(F("BYTE DI TEST 03 (dec)"),P202_BYTE_TEST_WRITE_03_LABEL, P202_BYTE_TEST_WRITE_03, 0,255);
+      addFormNumericBox(F("BYTE DI TEST 04 (dec)"),P202_BYTE_TEST_WRITE_04_LABEL, P202_BYTE_TEST_WRITE_04, 0,255);
 
       // If custom tasksettings need to be loaded and displayed, this is the place to add that
 
@@ -162,11 +165,15 @@ boolean Plugin_202(uint8_t function, struct EventStruct *event, String& string)
       // If custom tasksettings need to be stored, then here is the place to add that
 
       // after the form has been saved successfuly, set success and break
-      P202_BYTE_TEST_WRITE = getFormItemInt(F("byteTestWrite"));
+      P202_BYTE_TEST_WRITE_01 = getFormItemInt(P202_BYTE_TEST_WRITE_01_LABEL);
+      P202_BYTE_TEST_WRITE_02 = getFormItemInt(P202_BYTE_TEST_WRITE_02_LABEL);
+      P202_BYTE_TEST_WRITE_03 = getFormItemInt(P202_BYTE_TEST_WRITE_03_LABEL);
+      P202_BYTE_TEST_WRITE_04 = getFormItemInt(P202_BYTE_TEST_WRITE_04_LABEL);
+
       P202_BAUDRATE = getFormItemInt(P202_BAUDRATE_LABEL);
       P202_SERIAL_MODE = getFormItemInt(P202_SERIAL_MODE_LABEL);
 
-      initSerial(); //reinit serial ccomm after reading serial parameters
+      P202_initSerial(P202_BAUDRATE, P202_SERIAL_MODE); //reinit serial ccomm after reading serial parameters
       
       success = true;
       break;
@@ -184,7 +191,7 @@ boolean Plugin_202(uint8_t function, struct EventStruct *event, String& string)
         break;
       }
 
-      initSerial(); //init serial comm 
+      P202_initSerial(P202_BAUDRATE, P202_SERIAL_MODE); //init serial comm 
 
       success = true;
       break;
@@ -195,25 +202,24 @@ boolean Plugin_202(uint8_t function, struct EventStruct *event, String& string)
       uint8_t  b;
 
       while(Plugin_202_ESPEasySerial->available() > 0) {
-        
         b = Plugin_202_ESPEasySerial->read();
-          addLogMove(LOG_LEVEL_DEBUG, concat(F("P202: read test = "), b));
-
+        addLogMove(LOG_LEVEL_DEBUG, concat(F("P202: read test = "), b));
       }
       
-
       success = true;
       break;
-      
     }
   
 
     case PLUGIN_ONCE_A_SECOND:
     {
       // code to be executed once a second. Tasks which do not require fast response can be added here
-      
-      testWrite(P202_BYTE_TEST_WRITE);
+      byte testCommandWrite[] = {P202_BYTE_TEST_WRITE_01, 
+                                 P202_BYTE_TEST_WRITE_02, 
+                                 P202_BYTE_TEST_WRITE_03, 
+                                 P202_BYTE_TEST_WRITE_04};
 
+      P202_testWrite(testCommandWrite);
       success = true;
     }
 
@@ -222,26 +228,25 @@ boolean Plugin_202(uint8_t function, struct EventStruct *event, String& string)
       // code to be executed 10 times per second. Tasks which require fast response can be added here
       // be careful on what is added here. Heavy processing will result in slowing the module down!
 
-      
-
       success = true;
     }
   }
   return success;
 }
 
-void testWrite(byte b) {
+void P202_testWrite(byte b[]) {
 
-
-  Plugin_202_ESPEasySerial->write(b);
+  int byteCount = sizeof(b)/sizeof(b[0]);
+  for(int i=0; i<byteCount; i++) {
+    Plugin_202_ESPEasySerial->write(b[i]);
+  }
   Plugin_202_ESPEasySerial->flush();
-
 }
 
-void initSerial() {
-  SerialConfig serialMode;
+void P202_initSerial(int baudRate, int modeIndex) {
+  SerialConfig serialMode = SERIAL_8N1;
 
-  switch(P202_SERIAL_MODE) {
+  switch(modeIndex) {
     case 0:
       serialMode = SERIAL_8N1;
       break;
@@ -253,7 +258,8 @@ void initSerial() {
       break;
   }
 
-  Plugin_202_ESPEasySerial->begin(P202_BAUDRATE, serialMode);
+  Plugin_202_ESPEasySerial->begin(baudRate, serialMode);
+  delay(100); //wait for serial to stabilise
 }
 
 #endif // USES_P202

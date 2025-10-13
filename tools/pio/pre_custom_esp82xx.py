@@ -29,19 +29,18 @@ else:
     "-DUSES_P002",  # ADC
     "-DUSES_P003",  # Generic Pulse Counter
     "-DUSES_P004",  # Dallas DS18b20
+    "-DUSES_P017",  # PN532 RFID reader
     "-DUSES_P026",  # System info
-    # "-DUSES_P027",  # INA219
-    # "-DUSES_P028",  # BME280
+    "-DUSES_P027",  # INA219
+    "-DUSES_P028",  # BME280
     "-DUSES_P033",  # Dummy
     "-DUSES_P036",  # FrameOLED
     "-DUSES_P037",  # MQTT Import
-    # "-DUSES_P045",  # MPU6050
-    # "-DUSES_P049",  # MHZ19
-    # "-DUSES_P052",  # SenseAir
-    # "-DUSES_P056",  # SDS011-Dust
+    "-DUSES_P045",  # MPU6050
+    "-DUSES_P049",  # MHZ19
+    "-DUSES_P052",  # SenseAir
+    "-DUSES_P056",  # SDS011-Dust
 #    "-DUSES_P059",  # Encoder
-    "-DUSES_P078",  
-
 #    "-DUSES_P080",  # Dallas iButton
     "-DUSES_P081",  # Cron
     "-DUSES_P082",  # GPS
@@ -100,5 +99,3 @@ print("\u001b[32m ------------------------------- \u001b[0m")
 if (len(my_defines) == 0):
   print("\u001b[31m No defines are set, probably configuration error. \u001b[0m")
   raise ValueError
-
-
