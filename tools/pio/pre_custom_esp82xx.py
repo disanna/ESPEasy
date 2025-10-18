@@ -36,10 +36,10 @@ else:
     "-DUSES_P033",  # Dummy
     "-DUSES_P036",  # FrameOLED
     "-DUSES_P037",  # MQTT Import
-    "-DUSES_P045",  # MPU6050
-    "-DUSES_P049",  # MHZ19
-    "-DUSES_P052",  # SenseAir
-    "-DUSES_P056",  # SDS011-Dust
+#    "-DUSES_P045",  # MPU6050
+#    "-DUSES_P049",  # MHZ19
+#    "-DUSES_P052",  # SenseAir
+#    "-DUSES_P056",  # SDS011-Dust
 #    "-DUSES_P059",  # Encoder
 #    "-DUSES_P080",  # Dallas iButton
     "-DUSES_P081",  # Cron

@@ -1,7 +1,6 @@
 #include "_Plugin_Helper.h"
-
 #ifdef USES_P202
-
+  
 // #######################################################################################################
 // ################Plugin 202: Controller per Pompa di Calore Panasonic Aquarea wh-mdc09c3e5 #############
 // #######################################################################################################
@@ -14,24 +13,25 @@
 # define PLUGIN_VALUENAME3_202 "T_ESTERNA"  // 
 # define PLUGIN_VALUENAME4_202 "T_MANDATA"  // 
 
-#define P202_BAUDRATE                   PCONFIG_LONG(0)
-#define P202_BAUDRATE_LABEL             PCONFIG_LABEL(0)
-#define P202_SERIAL_MODE                PCONFIG(1)
-#define P202_SERIAL_MODE_LABEL          PCONFIG_LABEL(1)
-#define P202_BYTE_TEST_WRITE_01            PCONFIG(2)
-#define P202_BYTE_TEST_WRITE_01_LABEL      PCONFIG_LABEL(2)
-#define P202_BYTE_TEST_WRITE_02            PCONFIG(3)
-#define P202_BYTE_TEST_WRITE_02_LABEL      PCONFIG_LABEL(3)
-#define P202_BYTE_TEST_WRITE_03            PCONFIG(4)
-#define P202_BYTE_TEST_WRITE_03_LABEL      PCONFIG_LABEL(4)
-#define P202_BYTE_TEST_WRITE_04            PCONFIG(5)
-#define P202_BYTE_TEST_WRITE_04_LABEL      PCONFIG_LABEL(5)
+# define P202_BAUDRATE                   PCONFIG_LONG(0)
+# define P202_BAUDRATE_LABEL             PCONFIG_LABEL(0)
+# define P202_SERIAL_MODE                PCONFIG(1)
+# define P202_SERIAL_MODE_LABEL          PCONFIG_LABEL(1)
+# define P202_BYTE_TEST_WRITE_01            PCONFIG(2)
+# define P202_BYTE_TEST_WRITE_01_LABEL      PCONFIG_LABEL(2)
+# define P202_BYTE_TEST_WRITE_02            PCONFIG(3)
+# define P202_BYTE_TEST_WRITE_02_LABEL      PCONFIG_LABEL(3)
+# define P202_BYTE_TEST_WRITE_03            PCONFIG(4)
+# define P202_BYTE_TEST_WRITE_03_LABEL      PCONFIG_LABEL(4)
+# define P202_BYTE_TEST_WRITE_04            PCONFIG(5)
+# define P202_BYTE_TEST_WRITE_04_LABEL      PCONFIG_LABEL(5)
 
 ESPeasySerial *Plugin_202_ESPEasySerial = nullptr;
 
 // Forward declarations
 void P202_initSerial(int baudRate, int modeIndex);
-void P202_testWrite(byte b);
+void P202_testWrite(uint8_t b[], u_int8_t count);
+uint8_t calcChecksum(const void *data, size_t len);
 
 boolean Plugin_202(uint8_t function, struct EventStruct *event, String& string)
 {
@@ -214,12 +214,13 @@ boolean Plugin_202(uint8_t function, struct EventStruct *event, String& string)
     case PLUGIN_ONCE_A_SECOND:
     {
       // code to be executed once a second. Tasks which do not require fast response can be added here
-      byte testCommandWrite[] = {P202_BYTE_TEST_WRITE_01, 
-                                 P202_BYTE_TEST_WRITE_02, 
-                                 P202_BYTE_TEST_WRITE_03, 
-                                 P202_BYTE_TEST_WRITE_04};
+      uint8_t testCommandWrite[] = {P202_BYTE_TEST_WRITE_01, 
+                                    P202_BYTE_TEST_WRITE_02, 
+                                    P202_BYTE_TEST_WRITE_03};
 
-      P202_testWrite(testCommandWrite);
+      uint8_t count = sizeof(testCommandWrite)/sizeof(testCommandWrite[0]);
+      P202_testWrite(testCommandWrite, count);
+
       success = true;
     }
 
@@ -234,12 +235,15 @@ boolean Plugin_202(uint8_t function, struct EventStruct *event, String& string)
   return success;
 }
 
-void P202_testWrite(byte b[]) {
+void P202_testWrite(uint8_t b[], u_int8_t count) {
 
-  int byteCount = sizeof(b)/sizeof(b[0]);
-  for(int i=0; i<byteCount; i++) {
+  uint8_t byteCheckSum = calcChecksum(b, count);      
+  addLogMove(LOG_LEVEL_DEBUG, concat(F("P202: byteCheckSum ="), byteCheckSum));
+
+  for(int i=0; i< count; i++) {
     Plugin_202_ESPEasySerial->write(b[i]);
   }
+  Plugin_202_ESPEasySerial->write(byteCheckSum);
   Plugin_202_ESPEasySerial->flush();
 }
 
@@ -260,6 +264,20 @@ void P202_initSerial(int baudRate, int modeIndex) {
 
   Plugin_202_ESPEasySerial->begin(baudRate, serialMode);
   delay(100); //wait for serial to stabilise
+}
+
+uint8_t calcChecksum(const void *data, size_t len) {
+    const uint8_t *p = static_cast<const uint8_t *>(data);
+    uint8_t ret = 0;
+
+    for(size_t i = 0; i < len; i++) {
+     ret += p[i];
+   }
+
+    if(ret < 256)
+      return ret;
+    else
+      return (ret-256);
 }
 
 #endif // USES_P202
