@@ -26,6 +26,23 @@
 # define P202_BYTE_TEST_WRITE_04            PCONFIG(5)
 # define P202_BYTE_TEST_WRITE_04_LABEL      PCONFIG_LABEL(5)
 
+// settaggio dei 4 BYTE del frame TX per invio comando (il 4° BYTE è il checksum e viene calcolato in fase di invio)
+#define P202_TX_BYTE1  170  // Primo byte del frame TX per invio comando (HEX 0XAA)
+
+#define P202_TX_BYTE2_CMD_SET_COOL_WATER_TEMP   136  
+#define P202_TX_BYTE2_CMD_MODE_HEAT    128
+#define P202_TX_BYTE2_CMD_MODE_COOL    128
+#define P202_TX_BYTE2_CMD_MODE_OFF    128
+#define P202_TX_BYTE2_CMD_SET_OUTDOOR_TEMP_LOW    130
+#define P202_TX_BYTE2_CMD_SET_OUTDOOR_TEMP_HIGH    131
+#define P202_TX_BYTE2_CMD_SET_HEAT_WATER_TEMP_HIGH    132
+#define P202_TX_BYTE2_CMD_SET_HEAT_WATER_TEMP_LOW    133
+#define P202_TX_BYTE2_CMD_SET_COOL_WATER_TEMP    136
+
+#define P202_TX_BYTE3_VAL_MODE_HEAT    3
+#define P202_TX_BYTE3_VAL_MODE_COOL    5
+#define P202_TX_BYTE3_VAL_MODE_OFF    4
+
 ESPeasySerial *Plugin_202_ESPEasySerial = nullptr;
 
 // Forward declarations
@@ -210,17 +227,53 @@ boolean Plugin_202(uint8_t function, struct EventStruct *event, String& string)
       break;
     }
   
+    case PLUGIN_WRITE:
+    {
+      // this case defines code to be executed when the plugin executes an action (command).
+      // Commands can be accessed via rules or via http.
+      // As an example, http://192.168.1.12//control?cmd=dothis
+      // implies that there exists the comamnd "dothis"
+
+      // parse string to extract the command
+      String cmd = parseString(string, 1); // already converted to lowercase
+      int value = parseString(string, 2).toInt();
+
+      if(equals(cmd, F("set_cool_water_temp"))) {
+        if((value >= 2) && (value <= 15)) {
+          addLogMove(LOG_LEVEL_DEBUG, concat(F("P202: set_cool_water_temp = "), value));
+          //trasmetti comando al PDC
+          uint8_t testCommandWrite[] = {P202_TX_BYTE1, 
+                                        P202_TX_BYTE2_CMD_SET_COOL_WATER_TEMP, 
+                                        value};
+
+          uint8_t count = sizeof(testCommandWrite)/sizeof(testCommandWrite[0]);
+          P202_testWrite(testCommandWrite, count);
+
+          success = true;
+        } 
+        else {
+          addLogMove(LOG_LEVEL_DEBUG, F("P202: set_cool_water_temp: errore - T fuori range"));
+          success = false;
+        }
+      }
+      else if(equals(cmd, F("set_mode_off"))) {
+        addLogMove(LOG_LEVEL_DEBUG, F("P202: set_mode_off"));
+        //trasmetti comando al PDC
+        uint8_t testCommandWrite[] = {P202_TX_BYTE1, 
+                                      P202_TX_BYTE2_CMD_MODE_OFF, 
+                                      P202_TX_BYTE3_VAL_MODE_OFF};
+
+        uint8_t count = sizeof(testCommandWrite)/sizeof(testCommandWrite[0]);
+        P202_testWrite(testCommandWrite, count);
+
+        success = true;
+      }
+      break; 
+    }
 
     case PLUGIN_ONCE_A_SECOND:
     {
       // code to be executed once a second. Tasks which do not require fast response can be added here
-      uint8_t testCommandWrite[] = {P202_BYTE_TEST_WRITE_01, 
-                                    P202_BYTE_TEST_WRITE_02, 
-                                    P202_BYTE_TEST_WRITE_03};
-
-      uint8_t count = sizeof(testCommandWrite)/sizeof(testCommandWrite[0]);
-      P202_testWrite(testCommandWrite, count);
-
       success = true;
     }
 
@@ -236,7 +289,6 @@ boolean Plugin_202(uint8_t function, struct EventStruct *event, String& string)
 }
 
 void P202_testWrite(uint8_t b[], u_int8_t count) {
-
   uint8_t byteCheckSum = calcChecksum(b, count);      
   addLogMove(LOG_LEVEL_DEBUG, concat(F("P202: byteCheckSum ="), byteCheckSum));
 
