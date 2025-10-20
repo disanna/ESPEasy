@@ -229,14 +229,11 @@ boolean Plugin_202(uint8_t function, struct EventStruct *event, String& string)
   
     case PLUGIN_WRITE:
     {
-      // this case defines code to be executed when the plugin executes an action (command).
-      // Commands can be accessed via rules or via http.
-      // As an example, http://192.168.1.12//control?cmd=dothis
-      // implies that there exists the comamnd "dothis"
-
       // parse string to extract the command
       String cmd = parseString(string, 1); // already converted to lowercase
       int value = parseString(string, 2).toInt();
+      addLogMove(LOG_LEVEL_DEBUG, concat(F("P202: parseString(string, 1) = "), cmd));
+      addLogMove(LOG_LEVEL_DEBUG, concat(F("P202: parseString(string, 2) = "), value));
 
       if(equals(cmd, F("set_cool_water_temp"))) {
         if((value >= 2) && (value <= 15)) {
@@ -268,6 +265,31 @@ boolean Plugin_202(uint8_t function, struct EventStruct *event, String& string)
 
         success = true;
       }
+      else if(equals(cmd, F("set_mode_cool"))) {
+        addLogMove(LOG_LEVEL_DEBUG, F("P202: set_mode_cool"));
+        //trasmetti comando al PDC
+        uint8_t testCommandWrite[] = {P202_TX_BYTE1, 
+                                      P202_TX_BYTE2_CMD_MODE_COOL, 
+                                      P202_TX_BYTE3_VAL_MODE_COOL};
+
+        uint8_t count = sizeof(testCommandWrite)/sizeof(testCommandWrite[0]);
+        P202_testWrite(testCommandWrite, count);
+
+        success = true;
+      }
+      else if(equals(cmd, F("set_mode_heat"))) {
+        addLogMove(LOG_LEVEL_DEBUG, F("P202: set_mode_heat"));
+        //trasmetti comando al PDC
+        uint8_t testCommandWrite[] = {P202_TX_BYTE1, 
+                                      P202_TX_BYTE2_CMD_MODE_HEAT, 
+                                      P202_TX_BYTE3_VAL_MODE_HEAT};
+
+        uint8_t count = sizeof(testCommandWrite)/sizeof(testCommandWrite[0]);
+        P202_testWrite(testCommandWrite, count);
+
+        success = true;
+      }
+      
       break; 
     }
 
